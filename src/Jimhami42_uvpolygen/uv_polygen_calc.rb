@@ -343,9 +343,11 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           # Undefine Instance Methods
           meths = instance_methods(true) - instance_methods(false)
           meths = meths.concat(private_instance_methods(true))
+          meths.map! {|m| m.to_sym } if meths[0].is_a?(String)
           keep  = [:initialize, :method_missing, :eql?, :equal?, :==] # :raise, :puts
           meths = meths - keep
           math  = Math.private_instance_methods(false)
+          math.map! {|m| m.to_sym } if math[0].is_a?(String)
           math  = math - keep
           meths = meths - math
           meths = meths - [
@@ -360,15 +362,19 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           end
           # Undefine Class Methods
           class << self
-            keep  = [
+            keep = [
               :__id__, :ancestors, :class, :const_missing,  :eql?,
               :equal?, :freeze, :frozen?, :included_modules, :inspect,
               :is_a?, :kind_of?, :name, :new, :nesting, :nil?,
               :object_id, :superclass, :to_s, :==
             ]
-            meths = methods(true) - keep
-            keep  = [:Complex,:Float,:Integer,:Rational,:method_missing,:undef_method] 
-            meths = meths - ( private_methods(true) - keep )
+            meths = methods(true)
+            meths.map! {|m| m.to_sym } if meths[0].is_a?(String)
+            meths = meths - keep
+            keep  = [:Complex,:Float,:Integer,:Rational,:method_missing,:undef_method]
+            priv  = private_methods(true)
+            priv.map! {|m| m.to_sym } if priv[0].is_a?(String)
+            meths = meths - ( priv - keep )
             if @@debug # allow introspection
               meths = meths - @@intro
               meths.each {|m| undef_method(m) }
@@ -398,7 +404,6 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
       #
       #}#
 
-
     end
 
     #
@@ -406,7 +411,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
     ### class definition
 
 
-    Calc.freeze unless @@debug  #  <-----------------------<<<<<<<<  FREEZE
+    Calc.freeze if !@@debug #rescue nil  #  <---------------<<<<<<<<  FREEZE
 
 
   end # module UVPolyGen
