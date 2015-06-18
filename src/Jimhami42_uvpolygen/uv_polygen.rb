@@ -39,11 +39,12 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
   
   module UVPolyGen # plugin module
 
+    verbose, $VERBOSE = $VERBOSE, nil # suppress warnings
 
     #{# 1. IMPORTANT PLUGIN CONSTANTS
     #
-      PLUGNAME ||= 'UVPolyGen'
-      OPTSKEY  ||= 'Plugin_Jimhami42_UVPolyGen' # for registry & plist settings
+      PLUGNAME = 'UVPolyGen'
+      OPTSKEY  = 'Plugin_Jimhami42_UVPolyGen' # for registry & plist settings
 
       # NOTICE: Any change in the parameter dictionary name constants
       # after a release, must be accompanied by a major version ordinal bump!
@@ -51,18 +52,18 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
       # it's identifier. (These are used to find and remove old dictionaries.)
       #
       # The last used parameter dictionary name attached at model level: 
-      DICTLAST  ||= 'Jimhami42_UVPolyGen_Parameters' # vers 2+
-      DICTLAST1 ||= 'UV_Parameters' # vers 1.x - DO NOT CHANGE - HISTORICAL
+      DICTLAST  = 'Jimhami42_UVPolyGen_Parameters' # vers 2+
+      DICTLAST1 = 'UV_Parameters' # vers 1.x - DO NOT CHANGE - HISTORICAL
       # Revisions must update case statement in: get_last_dictionary_name()
       #
       # The parameter dictionary name for individual mesh groups:
-      DICTMESH  ||= 'UV_Parameters'
+      DICTMESH  = 'UV_Parameters'
       # individual mesh dictionary was not used in v1.x, so we use nil:
       DICTMESH1 = nil unless defined?(DICTMESH1)
       # Revisions must update case statement in: get_mesh_dictionary_name()
 
       # Historical English surface choices (to decipher pre-v2 parameters.)
-      SURFENG ||= ['Offset','Side 1','Side 2','End 1','End 2']
+      SURFENG = ['Offset','Side 1','Side 2','End 1','End 2']
       # Post v1 dictionary saves integer index into locale SURFACE array.
     #
     #}#
@@ -135,7 +136,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
       # In the future when this prompt width bug is fixed, the
       # prompt formatting below will need an if .. else construct.
 
-      INPUT_WIDTH ||= 50 # spaces, also ref'd from get_parameters()
+      INPUT_WIDTH = 50 # spaces, also ref'd from get_parameters()
 
       allwidth = INPUT_WIDTH-2
       topwidth = PROMPT[0..5].max {|a,b| a.size <=> b.size }.size
@@ -144,7 +145,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
       PROMPT[0..5].each {|s| s<<" " }
       PROMPT[9..12].each{|s| s<<" " }
 
-      PROMPTS ||= [ # note plural constant name
+      PROMPTS = [ # note plural constant name
         "%#{allwidth-(topwidth-PROMPT[0].size)}s" % PROMPT[0], # U Start
         "%#{allwidth-(topwidth-PROMPT[1].size)}s" % PROMPT[1], # U End
         "%#{allwidth-(topwidth-PROMPT[2].size)}s" % PROMPT[2], # U Steps
@@ -160,7 +161,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
         "%#{allwidth-(botwidth-PROMPT[12].size)}s" % PROMPT[12]  # Scaling ?
       ]
 
-      PARAMS ||= { # Parameter dictionary keys & default values
+      PARAMS = { # Parameter dictionary keys & default values
         #
         'u_start' => "-PI/2",
         'u_end'   => "PI/2",
@@ -180,7 +181,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
         'scale'  => @@scale.to_s # automatically scale to model units
       }
       
-      LIST ||= ['','','','','','','','','','',SURFACE.join('|'),'',BOOLEAN.join('|')]
+      LIST = ['','','','','','','','','','',SURFACE.join('|'),'',BOOLEAN.join('|')]
     #
     #}#
 
@@ -188,13 +189,13 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
     #{# 4. CUSTOM EXCEPTIONS
     #
       # A custom attribute dictionary error:
-      AttrDictCreateError ||= Class.new(RuntimeError)
+      AttrDictCreateError = Class.new(RuntimeError) unless defined?(AttrDictCreateError)
 
       # A custom inputbox parameter error:
-      ParameterError ||= Class.new(RuntimeError)
+      ParameterError = Class.new(RuntimeError) unless defined?(ParameterError)
 
       # A custom inputbox retry exception:
-      RetryException ||= Class.new(RuntimeError)
+      RetryException = Class.new(RuntimeError) unless defined?(RetryException)
     #
     #}#
 
@@ -233,7 +234,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
 
       if @@debug
 
-        RELOAD_PATH ||= __FILE__[PLUGIN_ROOT_PATH.size+1..-1]
+        RELOAD_PATH = __FILE__[PLUGIN_ROOT_PATH.size+1..-1] unless defined?(RELOAD_PATH)
 
         Object.class_eval "
           def UVPG() #_reload
@@ -249,6 +250,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
     #
     #}#
 
+    $VERBOSE = verbose  # restore warnings
 
   end # module UVPolyGen
   
