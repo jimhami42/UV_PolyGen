@@ -1,28 +1,27 @@
 
+## UV POLYGEN REVISIONS & RELEASES
 
-# UV POLYGEN REVISIONS & RELEASES
-
-##  v 1.0  :  2014-07-04
+###  v 1.0  :  2014-07-04
 
 - Initial release (JRH)
 
 
-##  v 1.1  :  2014-07-21
+###  v 1.1  :  2014-07-21
 
 - Added dictionary to store inputs.
 
 
-##  v 1.1a :  2014-11-06
+###  v 1.1a :  2014-11-06
 
 - Re-worked mesh, polygon, and face creation.
 
 
-##  v 1.2  :  2014-11-09
+###  v 1.2  :  2014-11-09
 
 - Added offset surfaces.
 
 
-##  v 2.0  :  2015-06-17 (DAR)
+###  v 2.0  :  2015-06-17 (DAR)
 
 - Ruby Best Practices Overhaul.
   - Proper Author / Plugin module nesting.

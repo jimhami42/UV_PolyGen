@@ -34,9 +34,9 @@
  ============================================================================
 
 
-# UV POLYGEN FREE
+## UV POLYGEN FREE
 
-## Features
+### Features
 
 - 'Guidepoint at Origin' menu toggle
   - Adds a guidepoint at the mesh origin, on the current Layer (in free edition.)
@@ -52,7 +52,7 @@
   - Override on mesh does not change global default.
  
   
-## Entering Parameters
+### Entering Parameters
 
 - U and V Ranges, along with the Steps are considered unitless.
 

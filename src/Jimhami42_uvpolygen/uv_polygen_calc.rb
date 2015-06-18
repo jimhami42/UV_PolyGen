@@ -162,6 +162,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
                 msg = "  Non-digit beginning for arg: evaluating as Ruby code."
                 Kernel.puts(msg) rescue ::Kernel.puts(msg)
               end
+              str = str[1..-1] if str =~ /\A(\=)/i
               num = ieval(str)
             else
               if str =~ /\A(\+?|\-?)(\d+\z|\d+\.\d+\z)/i
@@ -212,7 +213,8 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           str = arg.dup
           retried = false
           begin
-            if str =~ /\A\D+/i # non-digit beginning
+            if str =~ /\A(\=|\D+|w+)/i # non-digit beginning
+              str = str[1..-1] if str =~ /\A(\=)/i
               num = ieval(str).to_f.round
             else
               if str =~ /\A(\d+\,\d+)/
@@ -237,6 +239,11 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
         end ### int()
 
         def node(fx,fy,fz,uc,ud,us,vc,vd,vs)
+          #
+          fx = fx[1..-1] if fx =~ /\A(\=)/i
+          fy = fy[1..-1] if fy =~ /\A(\=)/i
+          fz = fz[1..-1] if fz =~ /\A(\=)/i
+          #
           node = []
           x = 0
           y = 0
