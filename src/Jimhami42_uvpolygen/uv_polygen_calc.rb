@@ -64,6 +64,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           #}
           Jimhami42 = ::Jimhami42
           Sketchup  = ::Sketchup
+          String = ::String
           Geom = ::Geom
           Math = ::Math
           #
@@ -147,43 +148,84 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
         end
 
         def float(arg)
+          #
           str = arg.dup
+          #
           if @@debug
             msg = "\nJimhami42::UVPolyGen::Calc#float() method entry"
             msg<< "\n  arg : \"#{str}\""
             Kernel.puts(msg) rescue ::Kernel.puts(msg)
           end
+          #
           retried = false
-          begin
-            if str =~ /\A(\=|\+?\D+|\+?\w+|\-?\D+|\-?\w+)/i
+          #
+          begin # retry-able block
+            #
+            if str =~ /\A(\=|\(|\+?[^0-9_]+|\-?[^0-9_]+)/i
               # Non-digit beginning. Expressions beginning with '=' or '(' can
               # also be used to trigger evaluation, rather than conversion.
               if @@debug
                 msg = "  Non-digit beginning for arg: evaluating as Ruby code."
                 Kernel.puts(msg) rescue ::Kernel.puts(msg)
               end
-              str = str[1..-1] if str =~ /\A(\=)/i
+              if str =~ /\A(\=)/i
+                if @@debug
+                  msg = "  Stripping beginning equal sign."
+                  Kernel.puts(msg) rescue ::Kernel.puts(msg)
+                end
+                str = str[1..-1]
+              end
               num = ieval(str)
             else
-              if str =~ /\A(\+?|\-?)(\d+\z|\d+\.\d+\z)/i
+              if @@debug
+                msg = "  Digit beginning for arg: converting to Float."
+                Kernel.puts(msg) rescue ::Kernel.puts(msg)
+              end
+              # If str begins with underscore, +underscore or -underscore,
+              # insert a zero before the underscore character:
+              if str =~ /\A(_|\+_|\-_)/i
+                str.sub!(/_/,'0_')
+                if @@debug
+                  msg = "  Prepending start underscore with zero."
+                  Kernel.puts(msg) rescue ::Kernel.puts(msg)
+                end
+              end
+              # If str contains comma within numerics, replace the 1st comma:
+              if str =~ /\A(\+?|\-?)[0-9]+[0-9_]*\,[0-9_]+/i
+                if @@debug
+                  msg = "  Replacing comma decimal separator with decimal point."
+                  Kernel.puts(msg) rescue ::Kernel.puts(msg)
+                end
+                str.sub!(/\,/,'.')
+              end
+              #
+              begin
+                #
                 num = str.to_f
-              elsif str =~ /\A(\+?|\-?)(\d+\z|\d+\,\d+\z)/i
-                num = str.sub(/\,/,'.').to_f
-              elsif str =~ /\A(\+?|\-?)(\d+)/i # starts with numerics
-                if str =~ /\A(\+?|\-?)(\d+\,\d+)/i
-                  num = str.sub!(/\,/,'.').to_f # replace the comma
-                else
-                  num = str.to_f
+                #
+                if str =~ /\A(\+?|\-?)([0-9]+[0-9_]*|[0-9]+[0-9_]*\.[0-9_]+)(\.?deg|\.?degrees)/
+                  if @@debug
+                    msg = "  Argument expressed in degrees: converting to radians."
+                    Kernel.puts(msg) rescue ::Kernel.puts(msg)
+                  end
+                  num = num.degrees
+                elsif str =~ /\A(\+?|\-?)([0-9]+[0-9_]*|[0-9]+[0-9_]*\.[0-9_]+)(\.?rad|\.?radians)/
+                  if @@debug
+                    msg = "  Argument expressed in radians: converting to degrees."
+                    Kernel.puts(msg) rescue ::Kernel.puts(msg)
+                  end
+                  num = num.radians 
                 end
                 #
-                num = num.degrees if str =~ /\A(\+?|\-?)(\d+|\d+\.\d+)(\.?)(deg|degrees)/
-                num = num.radians if str =~ /\A(\+?|\-?)(\d+|\d+\.\d+)(\.?)(rad|radians)/
-                #
-              else
-                num = 1.0 # perhaps raise ArgumentError ?
-                # retried = true
-                # fail(ArgumentError,"invalid value for Float",caller)
+              rescue
+                retried = true
+                begin
+                  Kernel.fail(ArgumentError,"invalid value for Float",caller)
+                rescue
+                  ::Kernel.fail(ArgumentError,"invalid value for Float",caller)
+                end
               end
+              #
             end
             #
           rescue => e
@@ -200,6 +242,10 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
               Kernel.raise rescue ::Kernel.raise
             end
           else
+            if @@debug
+              msg = "  Return from float(): #{num}"
+              Kernel.puts(msg) rescue ::Kernel.puts(msg)
+            end
             return num.to_f
           end
           #
@@ -210,35 +256,62 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
         end
 
         def int(arg)
+          #
           str = arg.dup
-          retried = false
-          begin
-            if str =~ /\A(\=|\D+|w+)/i # non-digit beginning
-              str = str[1..-1] if str =~ /\A(\=)/i
-              num = ieval(str).to_f.round
-            else
-              if str =~ /\A(\d+\,\d+)/
-                str.gsub!(/\,/,'.')
-                num = str.to_f.round
-              elsif str =~ /\A(\d+\.\d+|\d+)/
-                num = str.to_f.round
-              end
-            end
-          rescue => e
-            if str =~ /(\d+\,\d+)/i && !retried
-              str.gsub!(/\,/,'.')
-              retried = true
-              retry
-            else
-              Kernel.raise rescue ::Kernel.raise
+          #
+          if @@debug
+            msg = "\nJimhami42::UVPolyGen::Calc#int() method entry"
+            msg<< "\n  arg : \"#{str}\""
+            Kernel.puts(msg) rescue ::Kernel.puts(msg)
+          end
+          # Leverage all the work we did in the float() method
+          # with regular expressions & logical branching, etc.,
+          # then round the resulting float value to an integer.
+          num = float(str).round
+          #
+          if @@debug
+            msg = "  Return from float() rounded: #{num}"
+            Kernel.puts(msg) rescue ::Kernel.puts(msg)
+          end
+          #
+        rescue => e
+          if @@debug
+            msg = "\nJimhami42::UVPolyGen::Calc#int() rescue clause"
+            msg << "\n  Most likely error comes from float() method:"
+            msg << "\n  Error: #{e.inspect}"
+            Kernel.puts(msg) rescue ::Kernel.puts(msg)
+          end
+          if e.message == "invalid value for Float"
+            # Then error came from out float() function:
+            begin
+              Kernel.fail(ArgumentError,"invalid value for Integer",caller)
+            rescue
+              ::Kernel.fail(ArgumentError,"invalid value for Integer",caller)
             end
           else
-            return num
+            Kernel.raise rescue ::Kernel.raise
           end
+          #
+        else
+          return num
           #
         end ### int()
 
         def node(fx,fy,fz,uc,ud,us,vc,vd,vs)
+          #
+          if @@debug
+            msg = "\nJimhami42::UVPolyGen::Calc#node() method entry"
+            msg<< "\n  fx : \"#{fx}\""
+            msg<< "\n  fy : \"#{fy}\""
+            msg<< "\n  fz : \"#{fz}\""
+            msg<< "\n  uc : \"#{uc}\""
+            msg<< "\n  ud : \"#{ud}\""
+            msg<< "\n  us : \"#{us}\""
+            msg<< "\n  vc : \"#{vc}\""
+            msg<< "\n  vd : \"#{vd}\""
+            msg<< "\n  vs : \"#{vs}\""
+            Kernel.puts(msg) rescue ::Kernel.puts(msg)
+          end
           #
           fx = fx[1..-1] if fx =~ /\A(\=)/i
           fy = fy[1..-1] if fy =~ /\A(\=)/i
@@ -382,22 +455,24 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
               meths.each {|m| undef_method(m) rescue nil }
             end
             # lastly
-            undef_method('undef_method')
+            undef_method('undef_method') rescue nil
+            keep = priv = meths = nil
           end
           #
         rescue => e
           Jimhami42::UVPolyGen::announce_error(e,"Issue undefining methods in Calc class.")
         ensure
-          # restore warnings:
-          $VERBOSE = verbose
           # Cleanup - GC
-          @@intro.clear
-          keep.clear
-          math.clear
-          meths.clear
           keep = math = meths = nil
           @@intro = nil
           remove_class_variable(:@@intro) rescue nil
+          if defined?(BasicObject)
+            String = nil # point local constant at nil
+            remove_const(:String)
+          end
+          # restore warnings:
+          $VERBOSE = verbose
+          # garbage collection:
           GC::start rescue ::GC::start
         end
 
