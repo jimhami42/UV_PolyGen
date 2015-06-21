@@ -1,27 +1,27 @@
 
-## UV POLYGEN REVISIONS & RELEASES
+### UV POLYGEN REVISIONS & RELEASES
 
-###  v 1.0  :  2014-07-04
+####  v 1.0  :  2014-07-04
 
 - Initial release (JRH)
 
 
-###  v 1.1  :  2014-07-21
+####  v 1.1  :  2014-07-21
 
 - Added dictionary to store inputs.
 
 
-###  v 1.1a :  2014-11-06
+####  v 1.1a :  2014-11-06
 
 - Re-worked mesh, polygon, and face creation.
 
 
-###  v 1.2  :  2014-11-09
+####  v 1.2  :  2014-11-09
 
 - Added offset surfaces.
 
 
-###  v 2.0  :  2015-06-17 (DAR)
+####  v 2.0  :  2015-06-17 (DAR)
 
 - Ruby Best Practices Overhaul.
   - Proper Author / Plugin module nesting.
@@ -76,41 +76,41 @@
 * Forked code for UV-PolyGen-Pro edition.
 
 
-###  v 2.1  :  2015-06-18 (DAR)
+####  v 2.1  :  2015-06-18 (DAR)
 
-- #1 SketchUp versions running Ruby 1.8 choke on ||= used to initialize constants.
+- Issue #1 SketchUp versions running Ruby 1.8 choke on ||= used to initialize constants.
   - Change all "||=" to "="
   - Suppress "already initialized constant" warnings at top of "polygen.rb"
   - Restore $VERBOSE at bottom  of "polygen.rb"
 
-- #2 Decreased heading sizes by one for "README.md" and revsions markdown file.
+- Issue #2 Decreased heading sizes by one for "README.md" and revsions markdown file.
 
-- #3 "uv_polygen_calc.rb" - Strip "=" in first position of eval strings:
+- Issue #3 "uv_polygen_calc.rb" - Strip "=" in first position of eval strings:
   - modified methods: float(), int(), and node() accordingly.
 
-- #4 "uv_polygen_calc.rb" - Undefine methods not working.
+- Issue #4 "uv_polygen_calc.rb" - Undefine methods not working.
   - Updated the safety code to convert String methodname arrays to symbol
     methodname arrays when running Ruby 1.8.
   - Used a simple `is_a?(String)` test on the 1st position in the arrays,
     and use `map!` to convert all the members if the string test is true.
 
-- #5 PR & Merge commit
+- Issue #5 PR & Merge commit
 
 
-###  v 2.2  :  2015-06-20 (DAR)
+####  v 2.2  :  2015-06-20 (DAR)
 
-- #6 "uv_polygen_calc.rb" - NoMethodError: undefined method `clear' for NilClass
+- Issue #6 "uv_polygen_calc.rb" - NoMethodError: undefined method `clear' for NilClass
   - ~ line 395: in ensure clause: calling clear on array references failing. 
     - Removed all calls to clear, and just set all array references to nil.
   - ~ line 387: Added line `keep = priv = meths = nil` to `class<<self` block.
 
-- #7 "uv_polygen_calc.rb" - uninitialized constant String in class Calc
+- Issue #7 "uv_polygen_calc.rb" - uninitialized constant String in class Calc
   - Added to PROXY CONSTANTS sub-section of CONSTANTS section:
     `String = ::String` for Ruby 2.x+ only. (Oversight from issue #4.)
   - Added at end of UNDEFINE METHODS section, just before call to GC:
     a Ruby 2.x conditional block that undefines the local String constant.
 
-- #8 "uv_polygen_calc.rb" - Regular Expressions float() & int() functions:
+- Issue #8 "uv_polygen_calc.rb" - Regular Expressions float() & int() functions:
   - Fixed the regular expressions in the float() function, so that evaluation
     or conversion occurs properly.
     - Used [0-9_] & [0-9] as the numeric character classes.
@@ -129,5 +129,5 @@
       regular expressions & logical branching, etc.
     - Added debug messages.
 
-- # 9 PR & Merge commit
+- Issue # 9 PR & Merge commit
 
