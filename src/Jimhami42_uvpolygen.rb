@@ -69,7 +69,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
       File.join(PLUGIN_PATH, "uv_polygen.rb")
     )
 
-    EXTENSION.version   = "2.1"
+    EXTENSION.version   = "2.2"
     EXTENSION.creator   = "Jim Hamilton & other contributors."
     EXTENSION.copyright = "2014..2015, under the MIT License"
 
