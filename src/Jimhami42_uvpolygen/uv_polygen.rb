@@ -45,6 +45,8 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
     #
       PLUGNAME = 'UVPolyGen'
       OPTSKEY  = 'Plugin_Jimhami42_UVPolyGen' # for registry & plist settings
+      
+      RELOAD_PATH = __FILE__[PLUGIN_ROOT_PATH.size+1..-1] unless defined?(RELOAD_PATH)
 
       # NOTICE: Any change in the parameter dictionary name constants
       # after a release, must be accompanied by a major version ordinal bump!
@@ -71,7 +73,6 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
 
     #{# 2. MODULE VARIABLES FOR PLUGIN SETTINGS
     #
-
       @@scale = Sketchup::read_default(OPTSKEY,'scale',true) ? true : false
       @@scale_check = @@scale ? MF_CHECKED : MF_UNCHECKED
 
@@ -79,10 +80,21 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
 
       @@cpoint = Sketchup::read_default(OPTSKEY,'cpoint',true) ? true : false
       @@cpoint_check = @@cpoint ? MF_CHECKED : MF_UNCHECKED
-      
+
       @@debug = Sketchup::read_default(OPTSKEY,'debug_mode',false)
       @@debug = false if @@debug.nil?
 
+      @@calc_debug = Sketchup::read_default(OPTSKEY,'calc_debug_mode',false)
+      @@calc_debug = false if @@calc_debug.nil?
+
+      @@calc_debug_call = Sketchup::read_default(OPTSKEY,'calc_debug_call',false)
+      @@calc_debug_call = false if @@calc_debug_call.nil?
+
+      @@calc_debug_euro = Sketchup::read_default(OPTSKEY,'calc_debug_euro',false)
+      @@calc_debug_euro = false if @@calc_debug_euro.nil?
+
+      @@calc_global = Sketchup::read_default(OPTSKEY,'calc_global',false)
+      @@calc_global = false if @@calc_global.nil?
     #
     #}#
 
@@ -90,16 +102,22 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
     #{# 3. INPUTBOX CONSTANTS
     #
       # ERRORTXT[:param] will be followed by "(#{num}): #{message}"
-      #  example: "Error Parameter(4): eval not allowed!"
+      #  example: "Error Parameter(4): method call not allowed!"
       #  These are displayed as inputbox caption after an input error.
       ERRORTXT = {
         :error => 'Error',
         :param => 'Error Parameter', # [*see note above]
         :scope => "'::' operator not allowed!",
-        :eval  => "eval not allowed!",
+        :eval  => "method call not allowed!",
+        :class => "class reference not allowed!",
         :float => "must evaluate as Float",
         :toint => "must evaluate as Integer",
-        :range => "start..end range cannot be 0.0"
+        :range => "start..end range cannot be 0.0",
+        :steps => "step count must round to >= 1",
+        :uinfi => "u range divisions cannot be infinite!",
+        :vinfi => "v range divisions cannot be infinite!",
+        :udivs => "u range divisions below tolerance!",
+        :vdivs => "v range divisions below tolerance!"
       }
 
       BOOLEAN = ['true','false'] # choices in inputbox
@@ -202,11 +220,11 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
 
     #{# 5. LOAD CLASSES & METHODS
     #
-      # Load Calc class definition:
-      require File.join(PLUGIN_PATH,'uv_polygen_calc.rb')
-
       # Load Core methods:
       require File.join(PLUGIN_PATH,'uv_polygen_core.rb')
+
+      # Load Calc class definition:
+      require File.join(PLUGIN_PATH,'uv_polygen_calc.rb')
 
       # Load menus & commands:
       require File.join(PLUGIN_PATH,'uv_polygen_menu.rb')
@@ -219,34 +237,83 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
       def self::debug(arg=true)
       # Sets debug mode (default is true.)
         #
-        @@debug = arg ? true : false
-        Sketchup::write_default(OPTSKEY,'debug_mode',@@debug ? true : false)
+        if @@debug != ( arg ? true : false )
+          #
+          @@debug = arg ? true : false
+          Sketchup::write_default(OPTSKEY,'debug_mode',@@debug)
+          #
+          if @@debug && !Object.methods.include?('UVPG')
+            Object.class_eval "
+              def UVPG()
+                Jimhami42::UVPolyGen::reload()
+              end
+            "
+          end
+          #
+        end
         #
       end ### self::debug()
-
-      def self::debug=(arg=false)
-      # Sets debug mode (default is false.)
-        #
-        @@debug = arg ? true : false
-        Sketchup::write_default(OPTSKEY,'debug_mode',@@debug ? true : false)
-        #
-      end ### self::debug=()
-
-      if @@debug
-
-        RELOAD_PATH = __FILE__[PLUGIN_ROOT_PATH.size+1..-1] unless defined?(RELOAD_PATH)
-
-        Object.class_eval "
-          def UVPG() #_reload
-            path = '#{Module::nesting[0]::RELOAD_PATH}'
-            puts '\nReloading: '<<path.inspect
-            load path
-            puts
-          end
-          $calc = Jimhami42::UVPolyGen::Calc.new(true)
-        "
-
+      class << self
+        alias_method(:debug=,:debug)
       end
+
+      def self::debug?
+      # Returns debug mode.
+        #
+        @@debug
+        #
+      end ### self::debug?()
+
+      def self::get_calc(
+        autoscale = true
+      )
+      # Creates a Calc class instance to play with at the console.
+        #
+        Jimhami42::UVPolyGen::Calc.new(autoscale)
+        #
+      end ### self::get_calc()
+
+      def self::units_options()
+      # Returns a reference to the active model's units options provider.
+      # Called from Calc class initialize(), so that the Sketchup module
+      # reference need not be exposed to instances.
+        #
+        Sketchup.active_model.options['UnitsOptions']
+        #
+      end ### self::units_options()
+
+      def self::reload()
+      # Reloads the plugin's files.
+        #
+        verbose, $VERBOSE = $VERBOSE, nil # suppress warnings
+        #
+        puts "\nReloading files for #{Module::nesting[0].name} ..."
+        # Reload "uv_polygen.rb" (THIS file.)
+        puts '  Loading: '<<RELOAD_PATH.inspect
+        load RELOAD_PATH
+        # Reload Calc class definition:
+        path = File.join(File.dirname(RELOAD_PATH),'uv_polygen_calc.rb')
+        puts '  Loading: '<<path.inspect
+        load path
+        # Reload Core methods:
+        path = File.join(File.dirname(RELOAD_PATH),'uv_polygen_core.rb')
+        puts '  Loading: '<<path.inspect
+        load path
+        # Reload menus & commands:
+        path = File.join(File.dirname(RELOAD_PATH),'uv_polygen_menu.rb')
+        puts '  Loading: '<<path.inspect
+        load path
+        #
+      rescue => e
+        puts "UVPolyGen Reload Error: "<<e.inspect
+        puts e.backtrace.first
+      ensure
+        # restore warnings:
+        $VERBOSE = verbose  
+        return "$VERBOSE is now: #{$VERBOSE.to_s}\n"
+        #
+      end ### self::reload()
+
     #
     #}#
 
