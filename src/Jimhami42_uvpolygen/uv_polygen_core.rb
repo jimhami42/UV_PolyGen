@@ -85,12 +85,13 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
         #
         msg  = "#{PLUGNAME}: #{tagline}"
         msg << "\nError: #{exception.inspect}"
+        msg << "\n"
+        msg << "\nBacktrace:\n"
+        msg << exception.backtrace.join("\n")
+        #
         if !@@debug
-          UI.messagebox( msg, MB_MULTILINE, MENUNAME )
+          UI.messagebox( msg, MB_MULTILINE, PLUGNAME )
         else
-          msg = "\n"<<msg
-          msg << "\nBacktrace:\n"
-          msg << exception.backtrace.join("\n")
           puts msg<<"\n\n"
         end
         #
@@ -679,29 +680,85 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           #
           # Check eval'd fields for "no-no"s:
           input[0..9].each_with_index {|p,i|
+            #
             # Check for :: scope operator:
             fail(ParameterError,"(#{i+1}): #{ERRORTXT[:scope]}") if p =~ /(\:\:)/
-            # Check for call to eval:
-            fail(ParameterError,"(#{i+1}): #{ERRORTXT[:eval]}") if p =~ /(eval)/
+            #
+            # Check for call to Calc control or validation methods:
+            if 
+            p =~ /(control|fail|floatval|ieval|initialize|intval|
+            node|module_eval|puts|raise|test|call|send|__send__)/
+              fail(ParameterError,"(#{i+1}): #{ERRORTXT[:eval]}")
+            end
+            #
+            # Check for call to eval or other global methods:
+            if 
+            p =~ /(`|abort|binding|caller|catch|class_eval|eval|eql|equal|exec|
+            exit|fail|false|fatal|fork|initialize|instance_eval|loop|new|open|
+            method_missing|proc|raise|read|readline|readlines|select|sleep|warn|
+            set_trace_func|syscall|system|throw|tracevar|trap|true|untrace_var)/
+              fail(ParameterError,"(#{i+1}): #{ERRORTXT[:eval]}")
+            end
+            #
+            # Check for call to dangerous base classes:
+            if p =~ /(BasicObject|Binding|Class|Dir|Error|Fiber|File|GC|
+            Interrupt|IO|Kernel|Math|Method|Marshal|Module|Mutex|Object|
+            Proc|Process|Signal|Socket|SKSocket|System|Thread|UnboundMethod)/
+              fail(ParameterError,"(#{i+1}): #{ERRORTXT[:class]}")
+            end
+            #
+            # Check for call to other base classes:
+            if p =~ /(Array|Bignum|Comparable|Continuation|Complex|Data|
+            Enumerable|Enumerator|Errno|Error|Exception|FalseClass|Fixnum|
+            Float|Geom|Hash|Integer|Length|Numeric|NilClass|Precision|
+            Range|Rational|Sketchup|String|Struct|Symbol|TrueClass|UI)/
+              fail(ParameterError,"(#{i+1}): #{ERRORTXT[:class]}")
+            end
+            #
           }
           #
           calc = Calc::new(autoscale) # the safer calculation namespace
           #
           msg = ERRORTXT[:float]
-          us = calc.float(input[0]) rescue fail(ParameterError,"(1): "<<msg)
-          ue = calc.float(input[1]) rescue fail(ParameterError,"(2): "<<msg)
-          vs = calc.float(input[3]) rescue fail(ParameterError,"(4): "<<msg)
-          ve = calc.float(input[4]) rescue fail(ParameterError,"(5): "<<msg)
+          us = calc.floatval(input[0]) rescue fail(ParameterError,"(1): "<<msg)
+          ue = calc.floatval(input[1]) rescue fail(ParameterError,"(2): "<<msg)
           msg = ERRORTXT[:range]
           fail(ParameterError,"(2): "<<msg) if (ue - us)==0.0
+          msg = ERRORTXT[:toint]
+          uc = calc.intval(input[2]) rescue fail(ParameterError,"(3): "<<msg)
+          uc = uc.abs
+          msg = ERRORTXT[:steps] # be sure u steps are not zero:
+          fail(ParameterError,"(3): "<<msg) if uc < 1
+          # Test the ud division:
+          ud = (ue - us) / uc.to_f
+          # Test for infinity or nan:
+          msg = ERRORTXT[:uinfi]
+          fail(ParameterError,"(3): "<<msg) unless ud.finite?
+          # Test ud * scale to be >= SketchUp's tolerance of 0.001":
+          msg = ERRORTXT[:udivs]
+          udiv =( autoscale ? ud * calc.scale : ud )
+          fail(ParameterError,"(3): "<<msg) unless udiv >= 0.001
+          #
+          vs = calc.floatval(input[3]) rescue fail(ParameterError,"(4): "<<msg)
+          ve = calc.floatval(input[4]) rescue fail(ParameterError,"(5): "<<msg)
+          msg = ERRORTXT[:range]
           fail(ParameterError,"(5): "<<msg) if (ve - vs)==0.0
           #
           msg = ERRORTXT[:toint]
-          uc = calc.int(input[2]) rescue fail(ParameterError,"(3): "<<msg)
-          vc = calc.int(input[5]) rescue fail(ParameterError,"(6): "<<msg)
+          vc = calc.intval(input[5]) rescue fail(ParameterError,"(6): "<<msg)
+          vc = vc.abs
+          msg = ERRORTXT[:steps] # be sure v steps are not zero:
+          fail(ParameterError,"(6): "<<msg) if vc < 1
           #
-          # Test ud & vd here to be >= SketchUp's tolerance of 0.001" ?
-          # Would need to take into account the scale.
+          # Test the vd division:
+          vd = (ve - vs) / vc.to_f
+          # Test for infinity or nan:
+          msg = ERRORTXT[:vinfi]
+          fail(ParameterError,"(6): "<<msg) unless vd.finite?
+          # Test vd * scale to be >= SketchUp's tolerance of 0.001":
+          msg = ERRORTXT[:vdivs]
+          vdiv =( autoscale ? vd * calc.scale : vd )
+          fail(ParameterError,"(6): "<<msg) unless vdiv >= 0.001
           #
           tud = Math::PI/10 # test ud value
           tvd = Math::PI/10 # test vd value
@@ -710,26 +767,43 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           #
           msg = ERRORTXT[:float]
           tx = "x = #{input[6]}"
-          calc.test(tx,u,v) rescue fail(ParameterError,"(7): "<<msg)
+          tx = calc.test(tx,u,v) rescue fail(ParameterError,"(7): "<<msg)
+          fail(ParameterError,"(7): "<<tx.message) if tx.is_a?(Exception)
+          fail(ParameterError,"(7): "<<msg) unless tx.is_a?(Float)
           ty = "y = #{input[7]}"
-          calc.test(ty,u,v) rescue fail(ParameterError,"(8): "<<msg)
+          ty = calc.test(ty,u,v) rescue fail(ParameterError,"(8): "<<msg)
+          fail(ParameterError,"(8): "<<ty.message) if ty.is_a?(Exception)
+          fail(ParameterError,"(8): "<<msg) unless ty.is_a?(Float)
           tz = "z = #{input[8]}"
-          calc.test(tz,u,v) rescue fail(ParameterError,"(9): "<<msg)
-          #
-          ud = (ue - us) / uc.to_f
-          vd = (ve - vs) / vc.to_f
+          tz = calc.test(tz,u,v) rescue fail(ParameterError,"(9): "<<msg)
+          fail(ParameterError,"(9): "<<tz.message) if tz.is_a?(Exception)
+          fail(ParameterError,"(9): "<<msg) unless tz.is_a?(Float)
           #
           fx = input[6]
           fy = input[7]
           fz = input[8]
           #
-          offset = calc.float(input[9]) rescue fail(ParameterError,"(10): "<<msg)
+          msg = ERRORTXT[:float]
+          n = input[9].strip
+          if (Calc::DECPT && ['0','0.0','.0','0.'].include?(n)) ||
+          (!Calc::DECPT && ['0','0,0',',0','0,'].include?(n))
+            offset = 0.0
+          else
+            o = calc.floatval(n) rescue fail(ParameterError,"(10): "<<msg)
+            if calc.scale != 1.0 && autoscale
+              # Scale offset to the model unit:
+              offset = o * calc.scale
+            else
+              offset = o
+            end
+          end
           #
           node = calc.node(fx,fy,fz,uc,ud,us,vc,vd,vs)
           #
           # input[10] from choice in locale language
           surface = SURFACE.index(input[10])
-          # input[11] will already be rstrip'd of whitespace
+          #
+          # input[11] is already stripped of leading and trailing whitespace.
           gname = input[11]
           #
         rescue RetryException
@@ -761,7 +835,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
 
       def get_user_input( params, caption = nil )
       # The primary inputbox control loop.
-      # Callers: validate_params()
+      # Callers: get_parameters()
         #
         caption = INPUT_TITLE if caption.nil?
         # Pad the 'name' field to cause a wide input width:

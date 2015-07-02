@@ -36,6 +36,13 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
 
       #{# CONSTANTS
       #
+        # The parent plugin namespace reference:
+        PLUGIN = Module.nesting[1] rescue ::Module.nesting[1]
+        NAMESPACE = PLUGIN.name
+
+        # This file's filename:
+        FILENAME = File.basename(__FILE__) rescue ::File.basename(__FILE__)
+
         # DECIMAL SEPARATOR
         #   Ruby itself always uses decimal point internally.
         begin
@@ -62,11 +69,10 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           # BasicObject subclass, & it cannot see Core classes & modules,
           # we must use proxy constants referencing fully qualified modules.
           #}
-          Jimhami42 = ::Jimhami42
-          Sketchup  = ::Sketchup
-          String = ::String
-          Geom = ::Geom
-          Math = ::Math
+          String = ::String # temporary
+          ArgumentError  = ::ArgumentError
+          LocalJumpError = ::LocalJumpError
+          RuntimeError   = ::RuntimeError
           #
         end
 
@@ -77,7 +83,49 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
 
       #{# CLASS VARIABLES
       #
-        @@debug = Jimhami42::UVPolyGen::module_eval('@@debug')
+        # Calc class introspection mode must be manually set in registry.
+        # Changing it after startup makes no difference in that session.
+        @@intro = PLUGIN::module_eval(  
+          'Sketchup::read_default(OPTSKEY,"calc_intro_mode",false)'
+        )
+        @@intro = false if @@intro.nil? # NEVER RELEASE WITH INTRO TRUE !!
+      #
+      #}#
+
+
+      #{# CLASS DEBUG METHODS
+      #
+      class << self
+
+        def debug(arg=true)
+        # Sets debug mode (default is true.)
+        #
+          # Cannot change class variables when class is frozen, so
+          # we keep the debug setting in the parent plugin module.
+          # Works to our advantage as we need not expose the Sketchup
+          # module reference in the Calc class.
+          #
+          debug =( arg ? true : false )
+          if debug != PLUGIN::module_eval('@@calc_debug')
+            PLUGIN::module_eval %Q{
+              Sketchup::write_default(OPTSKEY,'calc_debug_mode',#{debug})
+              @@calc_debug= #{debug}
+            }
+          end
+          #
+          return debug
+          #
+        end ### self::debug()
+        alias_method(:debug=,:debug)
+
+        def debug?
+        # Returns debug mode for the Calc class.
+          #
+          PLUGIN::module_eval('@@calc_debug')
+          #
+        end ### self::debug?()
+
+      end
       #
       #}#
 
@@ -91,11 +139,18 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
 
       #{# CONSTRUCTOR
       #
-        def initialize(autoscale)
+        def initialize(
+          autoscale = true, # Passed in from dialog input in actual use.
+          *ignored
+        )
           #
           @autoscale = autoscale
           #
-          opts = Sketchup.active_model.options['UnitsOptions']
+          @debug = PLUGIN::module_eval('@@calc_debug')
+          @debug_euro = PLUGIN::module_eval('@@calc_debug_euro')
+          @debug_call = PLUGIN::module_eval('@@calc_debug_call')
+          #
+          opts = PLUGIN::units_options
           unit = opts['LengthUnit']
           @scale = case unit
           when 0
@@ -124,183 +179,335 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
       #}#
 
 
-      #{# INSTANCE METHODS
+      #{# INPUT VALIDATION METHODS - (Not usable by input fields)
       #
-
         alias_method(:ieval,:instance_eval)
         undef_method(:instance_eval)
 
-        def abs(arg)
-          arg.respond_to?(:abs) ? arg.abs : arg
-        end
+        def control( callers, *ignored )
+        # Control who calls the internal validation methods.
+        # callers is a callstack array from the Kernel.caller() method.
+          #
+          # Only allow calling from:
+          # (1) control & validation methods in THIS file:
+          allowed = [
+            :control,:fail,:floatval,
+            :intval,:node,:raise,:test #:puts,:ieval,
+          ]
+          # (2) get_parameters() in 'uv_polygen_core.rb'
+          # or
+          # (3) from the console command line, during testing.
+          #
+          called = callers.first
+          #
+          if @debug && @debug_call
+            ::Kernel.puts "\nCallstack:"
+            ::Kernel.puts callers.inspect
+            #
+            ::Kernel.puts "\nCaller:"
+            ::Kernel.puts called.inspect
+          end
+          #
+          file = called.split(':')[0] rescue ''
+          meth = called.split(':')[2] rescue ''
+          if file.size == 1 # PC drive letter
+            file = called.split(':')[1] rescue ''
+            meth = called.split(':')[3] rescue ''
+            file = file.split('/').last
+          elsif file == '<main>'
+            meth = called.split(':')[1]
+          elsif file == 'SketchUp' or file.empty?
+            meth = "in `eval'" if meth.empty?
+          else
+            file = file.split('/').last
+          end
+          #
+          return if meth == "in `fail'" || meth == "in `raise'"
+          #
+          if file == FILENAME && meth != "in `<main>'"
+            meths = meth[4..-2].to_sym
+            unless allowed.include?(meths)
+              # Only allow control methods to call each other.
+              if @debug
+                msg = "\n  Called from other Calc function: \"#{meth}\""
+                msg<< "\n  Called from: \"#{file}:#{meth}\""
+                msg<< "\n  Raising LocalJumpError exception ..."
+                puts(msg)
+              end
+              begin
+                Kernel.fail(LocalJumpError,"method call not allowed",callers)
+              rescue
+                ::Kernel.fail(::LocalJumpError,"method call not allowed",callers)
+              end
+            end
+          elsif !file.empty? && file != 'uv_polygen_core.rb'
+            # Do not allow other files to abuse this method:
+            unless (file == '' || file == '<main>' || file == 'SketchUp') &&
+            ( meth == "in `eval'" || meth == "in `<main>'" )
+              if @debug
+                msg = "\n  Not called from console or 'uv_polygen_core.rb'"
+                msg<< "\n  Called from: \"#{file}:#{meth}\""
+                msg<< "\n  Raising RuntimeError exception ..."
+                puts(msg)
+              end
+              begin
+                Kernel.fail(RuntimeError,"method call not allowed",callers)
+              rescue
+                ::Kernel.fail(::RuntimeError,"method call not allowed",callers)
+              end
+            end
+          end
+          #
+        end ### control()
 
-        def ceil(arg)
-          arg.respond_to?(:ceil) ? arg.ceil : arg
-        end
 
-        def deg(arg)
-          arg.respond_to?(:degrees) ? arg.degrees : arg
-        end
-        alias_method(:deg2rad,:deg)
+        def fail( err, msg, stack, *ignored )
+          #
+          # Control who calls the internal validation methods.
+          callers = Kernel.caller(1) rescue ::Kernel.caller(2)
+          #control(callers)
+          #
+          Kernel.fail(err,msg,stack) rescue ::Kernel.fail(err,msg,stack)
+          #
+        end ### fail()
 
-        def e()
-          E
-        end
 
-        def float(arg)
+        def puts( str, *ignored )
+          #
+          # Control who calls the internal validation methods.
+          callers = Kernel.caller(1) rescue ::Kernel.caller(2)
+          #control(callers)
+          #
+          Kernel.puts(str) rescue ::Kernel.puts(str)
+          #
+        end ### puts()
+
+
+        def raise( *args )
+          #
+          # Control who calls the internal validation methods.
+          callers = Kernel.caller(1) rescue ::Kernel.caller(2)
+          #control(callers)
+          #
+          if args.empty?
+            Kernel.raise rescue ::Kernel.raise
+          else
+            Kernel.raise(*args) rescue ::Kernel.raise(*args)
+          end
+          #
+        end ### raise()
+
+        # -------------------------------------------------------------------
+
+        def floatval( arg, *ignored )
           #
           str = arg.dup
           #
-          if @@debug
-            msg = "\nJimhami42::UVPolyGen::Calc#float() method entry"
+          if @debug
+            msg = "\n#{NAMESPACE}::Calc#floatval() method entry"
             msg<< "\n  arg : \"#{str}\""
-            Kernel.puts(msg) rescue ::Kernel.puts(msg)
+            puts(msg)
           end
           #
-          retried = false
+          # Control who calls the internal validation methods.
+          callers = Kernel.caller(1) rescue ::Kernel.caller(2)
+          control(callers)
           #
-          begin # retry-able block
+          if str =~ /\A(\+|\-)?[^0-9.,]/i || str =~ /\A(\=|\(|\[|\{)/i
+            # Non-digit beginning. Expressions beginning with '=' or '(' can
+            # also be used to trigger evaluation, rather than conversion.
+            if @debug
+              msg = "  Non-digit beginning for arg: evaluating as Ruby code."
+              puts(msg)
+            end
+            # Strip beginning equal sign:
+            if str =~ /\A(\=)/i
+              if @debug
+                msg = "  Stripping beginning equal sign."
+                puts(msg)
+              end
+              str = str[1..-1]
+            end
+            # Handle euro style numerics using commas as decimal separator:
+            if !DECPT || (@debug && @debug_euro)
+              # If str contains commas, replace with decimal points:
+              if str =~ /(\,)/i
+                str.tr!(',','.')
+                if @debug
+                  msg = "  Replacing comma decimal separators with decimal points."
+                  msg<< "\n  str : \"#{str}\""
+                  puts(msg)
+                end
+              end
+              # If str contains semi-colons, replace with commas:
+              if str =~ /(\;)/i
+                str.tr!(';',',')
+                if @debug
+                  msg = "  Replacing semi-colons with commas."
+                  msg<< "\n  str : \"#{str}\""
+                  puts(msg)
+                end
+              end
+            end
+            # If str contains decimal points (preceded or not by + or -,)
+            # insert a zero before the decimal points, if needed:
+            if str =~ /([^0-9]+\.[0-9]+|\+\.[0-9]+|\-\.[0-9]+)/i
+              str.gsub!(/(\A|[^0-9])\.([0-9])/i,'\10.\2')
+              if @debug
+                msg = "  Prepending decimal points with zeros."
+                puts(msg)
+              end
+            end
             #
-            if str =~ /\A(\=|\(|\+?[^0-9_]+|\-?[^0-9_]+)/i
-              # Non-digit beginning. Expressions beginning with '=' or '(' can
-              # also be used to trigger evaluation, rather than conversion.
-              if @@debug
-                msg = "  Non-digit beginning for arg: evaluating as Ruby code."
-                Kernel.puts(msg) rescue ::Kernel.puts(msg)
+            ###
+              #
+              num = ieval(str)  #  <--<<< interpreter evaluation
+              #
+            ###
+            #
+          else # Begins with a digit, use conversion instead of evaluation:
+            #
+            if @debug
+              msg = "  Digit beginning for arg: converting to Float."
+              puts(msg)
+            end
+            # If str begins with underscore, +underscore or -underscore,
+            # insert a zero before the underscore character:
+            if str =~ /\A(_[0-9]|\+_[0-9]|\-_[0-9])/i
+              str.sub!(/_/,'0_')
+              if @debug
+                msg = "  Prepending start underscore with zero."
+                puts(msg)
               end
-              if str =~ /\A(\=)/i
-                if @@debug
-                  msg = "  Stripping beginning equal sign."
-                  Kernel.puts(msg) rescue ::Kernel.puts(msg)
-                end
-                str = str[1..-1]
-              end
-              num = ieval(str)
-            else
-              if @@debug
-                msg = "  Digit beginning for arg: converting to Float."
-                Kernel.puts(msg) rescue ::Kernel.puts(msg)
-              end
-              # If str begins with underscore, +underscore or -underscore,
-              # insert a zero before the underscore character:
-              if str =~ /\A(_|\+_|\-_)/i
-                str.sub!(/_/,'0_')
-                if @@debug
-                  msg = "  Prepending start underscore with zero."
-                  Kernel.puts(msg) rescue ::Kernel.puts(msg)
-                end
-              end
+            end
+            # Handle euro style numerics using commas as decimal separator:
+            if !DECPT || (@debug && @debug_euro)
               # If str contains comma within numerics, replace the 1st comma:
-              if str =~ /\A(\+?|\-?)[0-9]+[0-9_]*\,[0-9_]+/i
-                if @@debug
+              if str =~ /\A(\+?|\-?)([0-9]*\,[0-9_]+|[0-9]+[0-9_]*\,[0-9_]+)/i
+                if @debug
                   msg = "  Replacing comma decimal separator with decimal point."
-                  Kernel.puts(msg) rescue ::Kernel.puts(msg)
+                  puts(msg)
                 end
                 str.sub!(/\,/,'.')
               end
-              #
-              begin
-                #
-                num = str.to_f
-                #
-                if str =~ /\A(\+?|\-?)([0-9]+[0-9_]*|[0-9]+[0-9_]*\.[0-9_]+)(\.?deg|\.?degrees)/
-                  if @@debug
-                    msg = "  Argument expressed in degrees: converting to radians."
-                    Kernel.puts(msg) rescue ::Kernel.puts(msg)
-                  end
-                  num = num.degrees
-                elsif str =~ /\A(\+?|\-?)([0-9]+[0-9_]*|[0-9]+[0-9_]*\.[0-9_]+)(\.?rad|\.?radians)/
-                  if @@debug
-                    msg = "  Argument expressed in radians: converting to degrees."
-                    Kernel.puts(msg) rescue ::Kernel.puts(msg)
-                  end
-                  num = num.radians 
-                end
-                #
-              rescue
-                retried = true
-                begin
-                  Kernel.fail(ArgumentError,"invalid value for Float",caller)
-                rescue
-                  ::Kernel.fail(ArgumentError,"invalid value for Float",caller)
-                end
+            end
+            # If str has an underscore following the decimal point,
+            # remove the underscore character:
+            if str =~ /\A(\+?[0-9]*\._|\-?[0-9]*\._)/i
+              str.sub!(/\._/,'.')
+              if @debug
+                msg = "  Removing underscore after decimal point."
+                puts(msg)
               end
-              #
             end
             #
-          rescue => e
-            if @@debug
-              msg = "\nJimhami42::UVPolyGen::Calc#float() rescue clause"
-              msg << "\n  Error: #{e.inspect}"
-              Kernel.puts(msg) rescue ::Kernel.puts(msg)
+            ###
+              #
+              num = str.to_f  #  <--<<< String to Float conversion
+              #
+            ###
+            #
+            if str =~ /\A(\+?|\-?)([0-9]+[0-9_]*|[0-9]+[0-9_]*\.[0-9_]+)(\.?deg|\.?degrees)/
+              if @debug
+                msg = "  Argument expressed in degrees: converting to radians."
+                puts(msg)
+              end
+              num = num.degrees
+            elsif str =~ /\A(\+?|\-?)([0-9]+[0-9_]*|[0-9]+[0-9_]*\.[0-9_]+)(\.?rad|\.?radians)/
+              if @debug
+                msg = "  Argument expressed in radians: converting to degrees."
+                puts(msg)
+              end
+              num = num.radians 
             end
-            if str =~ /(\d+\,\d+)/i && !retried
-              str.gsub!(/\,/,'.')
-              retried = true
-              retry
-            else
-              Kernel.raise rescue ::Kernel.raise
-            end
-          else
-            if @@debug
-              msg = "  Return from float(): #{num}"
-              Kernel.puts(msg) rescue ::Kernel.puts(msg)
-            end
-            return num.to_f
+            #
+          end # if non-numeric evaluation .. else string conversion block
+          #
+        rescue => e
+          #
+          if @debug
+            msg = "\n#{NAMESPACE}::Calc#floatval() rescue clause"
+            msg << "\n  Error: #{e.inspect}"
+            puts(msg)
           end
           #
-        end ### float()
+          raise # ? return e
+          #
+        else
+          #
+          if @debug
+            msg = "  Return from floatval(): #{num}"
+            puts(msg)
+          end
+          #
+          return num.to_f
+          #
+        end ### floatval()
 
-        def floor(arg)
-          arg.respond_to?(:floor) ? arg.floor : arg
-        end
 
-        def int(arg)
+        def intval( arg, *ignored )
           #
           str = arg.dup
           #
-          if @@debug
-            msg = "\nJimhami42::UVPolyGen::Calc#int() method entry"
+          if @debug
+            msg = "\n#{NAMESPACE}::Calc#intval() method entry"
             msg<< "\n  arg : \"#{str}\""
-            Kernel.puts(msg) rescue ::Kernel.puts(msg)
+            msg<< "\n  passing value to floatval() method ..."
+            puts(msg)
           end
-          # Leverage all the work we did in the float() method
+          #
+          # Control who calls the internal validation methods.
+          callers = Kernel.caller(1) rescue ::Kernel.caller(2)
+          control(callers)
+          #
+          # Leverage all the work we did in the floatval() method
           # with regular expressions & logical branching, etc.,
           # then round the resulting float value to an integer.
-          num = float(str).round
+          n = floatval(str)
+          num = n.round
           #
-          if @@debug
-            msg = "  Return from float() rounded: #{num}"
-            Kernel.puts(msg) rescue ::Kernel.puts(msg)
+          if @debug
+            msg = "  Return from intval() rounded: #{num}"
+            puts(msg)
           end
           #
         rescue => e
-          if @@debug
-            msg = "\nJimhami42::UVPolyGen::Calc#int() rescue clause"
+          if @debug
+            msg = "\n#{NAMESPACE}::Calc#intval() rescue clause"
             msg << "\n  Most likely error comes from float() method:"
             msg << "\n  Error: #{e.inspect}"
-            Kernel.puts(msg) rescue ::Kernel.puts(msg)
+            puts(msg)
           end
           if e.message == "invalid value for Float"
-            # Then error came from out float() function:
-            begin
-              Kernel.fail(ArgumentError,"invalid value for Integer",caller)
-            rescue
-              ::Kernel.fail(ArgumentError,"invalid value for Integer",caller)
-            end
+            # Then error came from out floatval() function:
+            fail(
+              (ArgumentError rescue ::ArgumentError),
+              "invalid value for Integer",
+              caller
+            )
           else
             Kernel.raise rescue ::Kernel.raise
           end
           #
         else
+          #
           return num
           #
-        end ### int()
+        end ### intval()
 
-        def node(fx,fy,fz,uc,ud,us,vc,vd,vs)
+
+        def node( fx,fy,fz, uc,ud,us, vc,vd,vs, *ignored )
+        #
           #
-          if @@debug
-            msg = "\nJimhami42::UVPolyGen::Calc#node() method entry"
+          if @debug
+            msg = "\n#{NAMESPACE}::Calc#node() method entry"
+          end
+          #
+          # Control who calls the internal validation methods.
+          callers = Kernel.caller(1) rescue ::Kernel.caller(2)
+          control(callers)
+          #
+          if @debug
             msg<< "\n  fx : \"#{fx}\""
             msg<< "\n  fy : \"#{fy}\""
             msg<< "\n  fz : \"#{fz}\""
@@ -310,7 +517,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
             msg<< "\n  vc : \"#{vc}\""
             msg<< "\n  vd : \"#{vd}\""
             msg<< "\n  vs : \"#{vs}\""
-            Kernel.puts(msg) rescue ::Kernel.puts(msg)
+            puts(msg)
           end
           #
           fx = fx[1..-1] if fx =~ /\A(\=)/i
@@ -331,30 +538,117 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
               ieval('y = '<<fy)
               ieval('z = '<<fz)
               if @scale != 1.0 && @autoscale
+              # Scale x, y, and z to the model unit:
                 x = x * @scale
                 y = y * @scale
                 z = z * @scale
+                # Note: offset is scaled in the get_parameter()
+                # method, in the "uv_polygen_core.rb" file.
               end
-              pts << Geom::Point3d.new(x.to_l,y.to_l,z.to_l)
-              #pts << Geom::Point3d.new(x,y,z)
+              p3d = Geom::Point3d rescue ::Geom::Point3d
+              pts << p3d.new(x.to_l,y.to_l,z.to_l)
+              #pts << p3d.new(x,y,z)
             end
             node << pts
+          end
+          #
+          if @debug && !PLUGIN::module_eval('@@debug')
+            msg = "\n  Return (#{node.class.name}) from node():\n#{node.inspect}"
+            puts(msg) # plugin module debug will output node inspection.
           end
           #
           return node
           #
         end ### node()
 
-        def pi()
+
+        def test( arg, u, v, *ignored )
+        # For testing and input validation. The supplied u & v arguments
+        #    are method variables used in the local evaluation of str.
+        #
+          #
+          str = arg.dup
+          #
+          if @debug
+            msg = "\n#{NAMESPACE}::Calc#test() method entry"
+            msg<< "\n  arg : \"#{str}\""
+            msg<< "\n    u : \"#{u}\""
+            msg<< "\n    v : \"#{v}\""
+            puts(msg)
+          end
+          #
+          # Control who calls the internal validation methods.
+          callers = Kernel.caller(1) rescue ::Kernel.caller(2)
+          control(callers)
+          #
+          num = ieval(str) # ? pass this to float() ?
+          #
+          if @debug
+            msg = "  Return from test(): #{num}"
+            puts(msg)
+          end
+          #
+          if ( num.is_a?(Float) rescue num.is_a?(::Float) )
+            return num
+          else
+            return "must evaluate as Float"
+          end
+          #
+        rescue => e
+          if @debug
+            msg = "\n#{NAMESPACE}::Calc#test() rescue clause"
+            msg << "\n  Error: #{e.inspect}"
+            puts(msg)
+          end
+          #
+          return e
+          #
+        end ### test()
+
+      #
+      #}#
+
+
+      #{# MATH FUNCTIONS - (Accessible to parameter input fields)
+      #
+        def abs( arg, *ignored )
+          #
+          num = arg.respond_to?(:abs) ? arg.abs : arg
+          #
+        end ###
+
+        def ceil( arg, *ignored )
+          arg.respond_to?(:ceil) ? arg.ceil : arg
+        end ###
+
+        def deg( arg, *ignored )
+          arg.respond_to?(:degrees) ? arg.degrees : arg
+        end ###
+        alias_method(:deg2rad,:deg)
+
+        def e( *ignored )
+          E
+        end ###
+
+        def float( arg, *ignored )
+          arg.respond_to?(:to_f) ? arg.to_f : arg
+        end ###
+        alias_method(:f,:float)
+
+        def floor( arg, *ignored )
+          arg.respond_to?(:floor) ? arg.floor : arg
+        end ###
+
+        def pi( *ignored )
           PI
         end
 
-        def rad(arg)
+        def rad( arg, *ignored )
           arg.respond_to?(:radians) ? arg.radians : arg
-        end
+        end ###
         alias_method(:rad2deg,:rad)
 
-        def round(arg,places=0)
+        def round( arg, places=0, *ignored )
           places = places.to_i unless places.is_a?(Integer)
           if arg.respond_to?(:round)
             if arg.method(:round).arity != 0
@@ -367,18 +661,14 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           else
             arg
           end
-        end
+        end ###
+        alias_method(:rnd,:round)
 
-        def test(arg,u,v)
-          #
-          str = arg.dup
-          ieval(str)
-          #
-        end ### test()
-
-        def trunc(arg)
+        def trunc( arg, *ignored )
           arg.respond_to?(:truncate) ? arg.truncate : arg
-        end
+        end ###
+        alias_method(:int,:trunc)
+        alias_method(:i,:trunc)
       #
       #}#
 
@@ -389,10 +679,10 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
         #  want the users to access from the inputbox eval fields.
         # !note: instance_eval() is already aliased and undefined.
 
-        if @@debug
-          # introspection of Calc class allowed only while debugging.
-          @@intro = [
-            :caller, :caller_locations, :class_eval, :class_variable_defined?,
+        if @@intro
+          # introspection of Calc class allowed. NEVER RELEASE AS TRUE !
+          @@intro_meths = [
+            :caller_locations, :class_eval, :class_variable_defined?,
             :local_variables, :method_defined?, :class_variable_get,
             :class_variable_set, :class_variables, :const_defined?, :const_get,
             :const_missing, :const_set, :constants, :include?, :included_modules,
@@ -405,9 +695,9 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
             :public_method_defined?, :public_methods, :respond_to_missing?,
             :respond_to?, :singleton_methods, :tainted?, :untrusted?, :to_s,
             :superclass, :send, :__send__
-          ]
+          ] # keeping these -> :caller,
         else
-          @@intro = []
+          @@intro_meths = []
         end
 
         begin
@@ -417,18 +707,24 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           meths = instance_methods(true) - instance_methods(false)
           meths = meths.concat(private_instance_methods(true))
           meths.map! {|m| m.to_sym } if meths[0].is_a?(String)
-          keep  = [:initialize, :method_missing, :eql?, :equal?, :==] # :raise, :puts
+          keep  = [
+            :caller, :initialize, :method_missing,
+            :fail, :raise, :puts, :eql?, :equal?, '=='.to_sym
+          ]
           meths = meths - keep
-          math  = Math.private_instance_methods(false)
+          math  = Math rescue ::Math
+          math  = math.private_instance_methods(false)
           math.map! {|m| m.to_sym } if math[0].is_a?(String)
           math  = math - keep
           meths = meths - math
           meths = meths - [
-            :abs,:ceil,:deg,:deg2rad,:e,:float,:floor,:ieval,:int,
-            :node,:pi,:rad,:rad2deg,:round,:scale,:test,:trunc
+            :abs,:ceil,:deg,:deg2rad,:e,:f,:float,:floor,
+            :i,:int,:pi,:rad,:rad2deg,:rnd,:round,:scale,:trunc,
+            :control,:fail,:floatval,:ieval,:intval,:node,:puts,:test
           ]
-          if @@debug # allow introspection
-            meths = meths - @@intro
+          meths.delete_if{|s| s == :raise || s == :fail }
+          if @@intro # allow introspection
+            meths = meths - @@intro_meths
             meths.each {|m| undef_method(m) }
           else # suppress unfound method errors
             meths.each {|m| undef_method(m) rescue nil }
@@ -436,10 +732,10 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           # Undefine Class Methods
           class << self
             keep = [
-              :__id__, :ancestors, :class, :const_missing,  :eql?,
+              :__id__, :ancestors, :class, :const_missing, :raise, :fail,
               :equal?, :freeze, :frozen?, :included_modules, :inspect,
               :is_a?, :kind_of?, :name, :new, :nesting, :nil?,
-              :object_id, :superclass, :to_s, :==
+              :object_id, :superclass, :to_s, :eql?, '=='.to_sym
             ]
             meths = methods(true)
             meths.map! {|m| m.to_sym } if meths[0].is_a?(String)
@@ -448,8 +744,9 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
             priv  = private_methods(true)
             priv.map! {|m| m.to_sym } if priv[0].is_a?(String)
             meths = meths - ( priv - keep )
-            if @@debug # allow introspection
-              meths = meths - @@intro
+            meths.delete_if{|s| s == :raise || s == :fail }
+            if @@intro # allow introspection
+              meths = meths - @@intro_meths
               meths.each {|m| undef_method(m) }
             else # suppress unfound method errors
               meths.each {|m| undef_method(m) rescue nil }
@@ -460,12 +757,15 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           end
           #
         rescue => e
-          Jimhami42::UVPolyGen::announce_error(e,"Issue undefining methods in Calc class.")
+          #PLUGIN::announce_error(e,"Issue undefining methods in Calc class.")
+          puts "#{NAMESPACE}: Issue undefining methods in Calc class."
+          puts "Error: "<<e.inspect
+          puts e.backtrace
         ensure
           # Cleanup - GC
           keep = math = meths = nil
-          @@intro = nil
-          remove_class_variable(:@@intro) rescue nil
+          @@intro_meths = nil
+          remove_class_variable(:@@intro_meths) rescue nil
           if defined?(BasicObject)
             String = nil # point local constant at nil
             remove_const(:String)
@@ -479,14 +779,25 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
       #
       #}#
 
-    end
+    end # class Calc
 
     #
     ##
     ### class definition
 
 
-    Calc.freeze if !@@debug #rescue nil  #  <---------------<<<<<<<<  FREEZE
+    if @@calc_global
+      #
+      $calc = Calc.new(@@scale)
+      #
+    end
+
+
+    unless Calc::debug?
+      #
+      Calc.freeze rescue nil  #  <---------------<<<<<<<<  FREEZE Calc class
+      #
+    end
 
 
   end # module UVPolyGen

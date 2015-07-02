@@ -131,3 +131,91 @@
 
 - Issue # 9 PR & Merge commit
 
+
+####  v 2.3  :  2015-07-01 (DAR)
+
+
+- "uv_polygen_core.rb" - get_parameters() method modifications:
+
+  - Issue #11 : The **offset** value needs scaling to model unit when **autoscale** is true.
+    - The **scale** is now applied in the **get_parameters()** method, of the "uv_polygen_core.rb"
+      file, if **calc.scale != 1.0 && autoscale == true**
+
+  - Expanded input validation to:
+    - Disallow use of **::** scope operator.
+	- Disallow calling the most dangerous global methods.
+	- Dislallow referring to Ruby Base classes and modules.
+	- Disallow u and v ranges that are zero.
+	- Disallow u or v steps less than 1.
+	- Disallow u and v divisions that are less than SketchUp's internal
+  	  tolerance of 0.001", after applying the model unit scale factor.
+	- Disallow u and v divisions that are not finite.
+	  (Another test that steps are not zero, resulting in infinite division.)
+  
+
+- "uv_polygen.rb" file modifications:
+
+	- Added more error messages to **ERRORTXT** hash to support better parameter input.
+	
+	- Defined new **units_options()** method to return a reference to the active model's
+	  units options provider. [Called from **Calc** class **initialize()**, so that the 
+	  **Sketchup** module reference need not be exposed to instances.]
+
+	- Issue #12 : Separated debug settings for main plugin and **Calc** class.
+	  - **Calc** class now uses instance debug variables, that mirror module variables,
+		that are maintained or changed in the outer plugin module. (Frozen classes cannot
+		dynamically change class variables.)
+		- JimHami42::UVPolyGen module variables for the **Calc** class:
+		  - **@@calc_debug** : subsequent **Calc* instances will set their **@@debug** flag to this.
+		  - **@@calc_debug_call** : outputs callstack in **control()** method if **@@calc_debug** is also true.
+		  - **@@calc_debug_euro** : toggle decimal separator testing (needs **@@calc_debug** true.)
+		  - **@@calc_global** : whether to define a **$calc** instance for testing, at startup.
+	  - Cleanup debug module methods in "uv_polygen.rb":
+		- Made **debug=()** an alias for **debug()**
+		- Defined **debug?** query method.
+		- Defined a **reload()** method to override files during testing (more elegantly.)
+		- Rewrote **debug()** toggle method so that global **UVPG()** method calls the new 
+		  **reload()** method, and that global **UVPG()** method can be defined at anytime,
+		  not just when loading UVPolyGen with debug mode already **true**.
+		- Defined new **get_calc()** module method to get a **Calc** class instance at any time.
+		  If not formally debugging, and not inclined to use a global variable,... then any
+		  reference can be used. Say for example a quick test from the console command line:
+		  **c = Jimhami42::UVPolyGen::get_calc**
+
+
+- "uv_polygen_calc.rb" : file modifications:
+
+  - Renamed validation methods:
+    - **float()** --> **floatval()**
+	- **int()** --> **intval()**
+	- [Now will use the former names as a math function names.]
+	
+  - New math function names and aliases:
+    - **float()**, alias **f()**, wrapper for **#to_f**.
+    - **int()**, alias **i()** & **trunc()**, wrapper for **#truncate**.
+    - **rnd()** alias for **round()**, wrapper for **#round**.
+
+  - New control and validation methods:
+    - **control()** : used to control & limit calling of internal methods
+	- **fail()** : local wrapper method for **::Kernel::fail()** [may use special local args]
+	- **raise()** : local wrapper method for **::Kernel::raise()** [normal or no arguments]
+	- **puts()**  : local wrapper method for **::Kernel::puts()**
+
+  - Added __*ignored__ parameter to all methods that are called from outside the class, or
+    from the evaluation of inputbox fields.
+	- This just collects any unexpected arguments into an array, so as not to cause the
+	  raising of an **ArgumentError** (wrong number of arguments) exception.
+
+  - **floatval()** method:
+  
+    - Issue #13 : Fixed single numeric inputs that began with a decimal separator.
+      - They were being passed to the evaluation clause instead of the conversion clause.
+	    Fixed the regular expression that decided whether the string began as a numeric or
+	    non-numeric.
+    - Overhauled the replacing of commas with decimal points regular expression.
+    - Removed the replace commas with periods and retry conditional in the **rescue** clause.
+      (Not needed as the handling of commas as decimal separator has been overhauled.)
+
+	
+- "Jimhami42_uvpolygen.rb" : bumped version number to "2.3"
+

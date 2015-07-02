@@ -65,9 +65,18 @@
   - Other numeric methods have added local function wrappers:
     - abs(num), ceil(num), deg(num), floor(num), rad(num), round(num,places), trunc(num)
 	- deg(), aliased as deg2rad() [*SketchUp uses radians internally]
+	- float(), aliased as f()
 	- rad(), aliased as rad2deg()
+	- round(), aliased as rnd()
+	- trunc(), aliased as i() and int()
   - If the user untoggled autoscale, then they can use the scale function in their input formulae, to get the scale factor for the model units. (The scale function has no arguments.)
-  - If autoscale is left ON, then x, y and z are scaled to the model units.
+  - If autoscale is left ON, then **x**, **y**, **z** and **offset** are scaled to the model units.
+  - In locales that use comma for the decimal separator, the semi-colon (';') must used to separate arguments in function calls, such as the **round()** function:
+    - Example: **`rnd(0,31249;3)`**
+	- Do not use anything other than a comma or decimal point, as a decimal separator.
+	- Do not use anything other than a semi-colon (';') as a parameter separator.
+	  - The commas will be replaced with decimal points first (so Ruby can recognize them as numeric values,) ... and afterwards any semi-colons will be replaced with commas (so Ruby can recognize them as parameter lists.)
+  
 
 - "Retry" prompt to reset parameters upon cancel.
   - When the user cancels the inputbox, in free edition, they are presented with a query to Retry or Cancel. The retry resets the input fields and redisplays the parameter inputbox. Useful if the entries get so far out of whack that the user is confused. They can then just reset rather than cancel completely and have to restart the command via the menus (or shortcut key.)
