@@ -145,11 +145,12 @@
     - Disallow use of **::** scope operator.
 	- Disallow calling the most dangerous global methods.
 	- Dislallow referring to Ruby Base classes and modules.
-	- Disallow u and v ranges that are zero.
-	- Disallow u or v steps less than 1.
-	- Disallow u and v divisions that are less than SketchUp's internal
-  	  tolerance of 0.001", after applying the model unit scale factor.
-	- Disallow u and v divisions that are not finite.
+	- Disallow **u** and **v** ranges that are zero.
+	- Disallow **u** or **v** steps less than 1.
+	- Disallow **u** and **v* divisions that are less than SketchUp's internal
+  	  tolerance of 0.001", after applying the model unit **scale** factor.
+	  - NOTE: Rolledback in v2.4
+	- Disallow **u** and **v** divisions that are not finite.
 	  (Another test that steps are not zero, resulting in infinite division.)
   
 
@@ -166,7 +167,7 @@
 		that are maintained or changed in the outer plugin module. (Frozen classes cannot
 		dynamically change class variables.)
 		- JimHami42::UVPolyGen module variables for the **Calc** class:
-		  - **@@calc_debug** : subsequent **Calc* instances will set their **@@debug** flag to this.
+		  - **@@calc_debug** : subsequent **Calc** instances will set their **@@debug** flag to this.
 		  - **@@calc_debug_call** : outputs callstack in **control()** method if **@@calc_debug** is also true.
 		  - **@@calc_debug_euro** : toggle decimal separator testing (needs **@@calc_debug** true.)
 		  - **@@calc_global** : whether to define a **$calc** instance for testing, at startup.
@@ -218,4 +219,20 @@
 
 	
 - "Jimhami42_uvpolygen.rb" : bumped version number to "2.3"
+
+
+
+####  v 2.4  :  2015-07-03 (DAR)
+
+- "uv_polygen_calc.rb" : file modifications:
+
+  - Added an error message to **ERRORTXT** hash to support offset parameter input.
+
+- "uv_polygen_core.rb" : file modifications:
+
+  - get_paramters() method:
+    - Issue #15 : Rolledback the 0.001" tolerance test for **ud** & **uv**.
+    - Issue #16 : Added 0.001" tolerance test for **offset** when not **0.0**.
+	
+- "Jimhami42_uvpolygen.rb" : bumped version number to "2.4"
 

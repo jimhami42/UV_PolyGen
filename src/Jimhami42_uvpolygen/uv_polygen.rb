@@ -117,7 +117,8 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
         :uinfi => "u range divisions cannot be infinite!",
         :vinfi => "v range divisions cannot be infinite!",
         :udivs => "u range divisions below tolerance!",
-        :vdivs => "v range divisions below tolerance!"
+        :vdivs => "v range divisions below tolerance!",
+        :obtol => "offset below tolerance!"
       }
 
       BOOLEAN = ['true','false'] # choices in inputbox
