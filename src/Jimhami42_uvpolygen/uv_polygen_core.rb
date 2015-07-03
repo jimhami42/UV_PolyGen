@@ -719,84 +719,111 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           #
           calc = Calc::new(autoscale) # the safer calculation namespace
           #
-          msg = ERRORTXT[:float]
-          us = calc.floatval(input[0]) rescue fail(ParameterError,"(1): "<<msg)
-          ue = calc.floatval(input[1]) rescue fail(ParameterError,"(2): "<<msg)
-          msg = ERRORTXT[:range]
-          fail(ParameterError,"(2): "<<msg) if (ue - us)==0.0
-          msg = ERRORTXT[:toint]
-          uc = calc.intval(input[2]) rescue fail(ParameterError,"(3): "<<msg)
-          uc = uc.abs
-          msg = ERRORTXT[:steps] # be sure u steps are not zero:
-          fail(ParameterError,"(3): "<<msg) if uc < 1
-          # Test the ud division:
-          ud = (ue - us) / uc.to_f
-          # Test for infinity or nan:
-          msg = ERRORTXT[:uinfi]
-          fail(ParameterError,"(3): "<<msg) unless ud.finite?
-          # Test ud * scale to be >= SketchUp's tolerance of 0.001":
-          msg = ERRORTXT[:udivs]
-          udiv =( autoscale ? ud * calc.scale : ud )
-          fail(ParameterError,"(3): "<<msg) unless udiv >= 0.001
-          #
-          vs = calc.floatval(input[3]) rescue fail(ParameterError,"(4): "<<msg)
-          ve = calc.floatval(input[4]) rescue fail(ParameterError,"(5): "<<msg)
-          msg = ERRORTXT[:range]
-          fail(ParameterError,"(5): "<<msg) if (ve - vs)==0.0
-          #
-          msg = ERRORTXT[:toint]
-          vc = calc.intval(input[5]) rescue fail(ParameterError,"(6): "<<msg)
-          vc = vc.abs
-          msg = ERRORTXT[:steps] # be sure v steps are not zero:
-          fail(ParameterError,"(6): "<<msg) if vc < 1
-          #
-          # Test the vd division:
-          vd = (ve - vs) / vc.to_f
-          # Test for infinity or nan:
-          msg = ERRORTXT[:vinfi]
-          fail(ParameterError,"(6): "<<msg) unless vd.finite?
-          # Test vd * scale to be >= SketchUp's tolerance of 0.001":
-          msg = ERRORTXT[:vdivs]
-          vdiv =( autoscale ? vd * calc.scale : vd )
-          fail(ParameterError,"(6): "<<msg) unless vdiv >= 0.001
-          #
-          tud = Math::PI/10 # test ud value
-          tvd = Math::PI/10 # test vd value
-          u = -Math::PI/2 * tud # test u value
-          v = -Math::PI/2 * tvd # test v value
-          #
-          msg = ERRORTXT[:float]
-          tx = "x = #{input[6]}"
-          tx = calc.test(tx,u,v) rescue fail(ParameterError,"(7): "<<msg)
-          fail(ParameterError,"(7): "<<tx.message) if tx.is_a?(Exception)
-          fail(ParameterError,"(7): "<<msg) unless tx.is_a?(Float)
-          ty = "y = #{input[7]}"
-          ty = calc.test(ty,u,v) rescue fail(ParameterError,"(8): "<<msg)
-          fail(ParameterError,"(8): "<<ty.message) if ty.is_a?(Exception)
-          fail(ParameterError,"(8): "<<msg) unless ty.is_a?(Float)
-          tz = "z = #{input[8]}"
-          tz = calc.test(tz,u,v) rescue fail(ParameterError,"(9): "<<msg)
-          fail(ParameterError,"(9): "<<tz.message) if tz.is_a?(Exception)
-          fail(ParameterError,"(9): "<<msg) unless tz.is_a?(Float)
-          #
-          fx = input[6]
-          fy = input[7]
-          fz = input[8]
-          #
-          msg = ERRORTXT[:float]
-          n = input[9].strip
-          if (Calc::DECPT && ['0','0.0','.0','0.'].include?(n)) ||
-          (!Calc::DECPT && ['0','0,0',',0','0,'].include?(n))
-            offset = 0.0
-          else
-            o = calc.floatval(n) rescue fail(ParameterError,"(10): "<<msg)
-            if calc.scale != 1.0 && autoscale
-              # Scale offset to the model unit:
-              offset = o * calc.scale
+          ### Validate us, ue & uc:
+            #
+            msg = ERRORTXT[:float]
+            us = calc.floatval(input[0]) rescue fail(ParameterError,"(1): "<<msg)
+            ue = calc.floatval(input[1]) rescue fail(ParameterError,"(2): "<<msg)
+            msg = ERRORTXT[:range]
+            fail(ParameterError,"(2): "<<msg) if (ue - us)==0.0
+            msg = ERRORTXT[:toint]
+            uc = calc.intval(input[2]) rescue fail(ParameterError,"(3): "<<msg)
+            uc = uc.abs
+            msg = ERRORTXT[:steps] # be sure u steps are not zero:
+            fail(ParameterError,"(3): "<<msg) if uc < 1
+            #
+            # Test the ud division:
+            ud = (ue - us) / uc.to_f
+            # Test for infinity or nan:
+            msg = ERRORTXT[:uinfi]
+            fail(ParameterError,"(3): "<<msg) unless ud.finite?
+            # Test ud * scale to be >= SketchUp's tolerance of 0.001":
+            #msg = ERRORTXT[:udivs]
+            #udiv =( autoscale ? ud * calc.scale : ud )
+            #fail(ParameterError,"(3): "<<msg) unless udiv >= 0.001
+            #
+          ### Validate vs, ve & vc:
+            #
+            vs = calc.floatval(input[3]) rescue fail(ParameterError,"(4): "<<msg)
+            ve = calc.floatval(input[4]) rescue fail(ParameterError,"(5): "<<msg)
+            msg = ERRORTXT[:range]
+            fail(ParameterError,"(5): "<<msg) if (ve - vs)==0.0
+            #
+            msg = ERRORTXT[:toint]
+            vc = calc.intval(input[5]) rescue fail(ParameterError,"(6): "<<msg)
+            vc = vc.abs
+            msg = ERRORTXT[:steps] # be sure v steps are not zero:
+            fail(ParameterError,"(6): "<<msg) if vc < 1
+            #
+            # Test the vd division:
+            vd = (ve - vs) / vc.to_f
+            # Test for infinity or nan:
+            msg = ERRORTXT[:vinfi]
+            fail(ParameterError,"(6): "<<msg) unless vd.finite?
+            # Test vd * scale to be >= SketchUp's tolerance of 0.001":
+            #msg = ERRORTXT[:vdivs]
+            #vdiv =( autoscale ? vd * calc.scale : vd )
+            #fail(ParameterError,"(6): "<<msg) unless vdiv >= 0.001
+            #
+          ### Create some test values for validating x, y & z:
+            #
+            tud = Math::PI/10 # test ud value
+            tvd = Math::PI/10 # test vd value
+            u   = -Math::PI/2 * tud # test u value
+            v   = -Math::PI/2 * tvd # test v value
+            msg = ERRORTXT[:float]
+            #
+          ### Validate x:
+            #
+            tx = "x = #{input[6]}"
+            tx = calc.test(tx,u,v) rescue fail(ParameterError,"(7): "<<msg)
+            fail(ParameterError,"(7): "<<tx.message) if tx.is_a?(Exception)
+            fail(ParameterError,"(7): "<<msg) unless tx.is_a?(Float)
+            #
+            fx = input[6]
+            #
+          ### Validate y:
+            #
+            ty = "y = #{input[7]}"
+            ty = calc.test(ty,u,v) rescue fail(ParameterError,"(8): "<<msg)
+            fail(ParameterError,"(8): "<<ty.message) if ty.is_a?(Exception)
+            fail(ParameterError,"(8): "<<msg) unless ty.is_a?(Float)
+            #
+            fy = input[7]
+            #
+          ### Validate z:
+            #
+            tz = "z = #{input[8]}"
+            tz = calc.test(tz,u,v) rescue fail(ParameterError,"(9): "<<msg)
+            fail(ParameterError,"(9): "<<tz.message) if tz.is_a?(Exception)
+            fail(ParameterError,"(9): "<<msg) unless tz.is_a?(Float)
+            #
+            fz = input[8]
+            #
+          ### Validate offset:
+            #
+            msg = ERRORTXT[:float]
+            n = input[9].strip
+            if (Calc::DECPT && ['0','0.0','.0','0.'].include?(n)) ||
+            (!Calc::DECPT && ['0','0,0',',0','0,'].include?(n))
+              offset = 0.0
             else
-              offset = o
+              o = calc.floatval(n) rescue fail(ParameterError,"(10): "<<msg)
+              if calc.scale != 1.0 && autoscale
+                # Scale offset to the model unit:
+                offset = o * calc.scale
+              else
+                offset = o
+              end
+              # check that offset is >= SketchUp's tolerance of 0.001":
+              msg = ERRORTXT[:obtol]
+              unless offset >= 0.001
+                o = Sketchup.format_length(offset)
+                fail(ParameterError,"(10): #{o} "<<msg)
+              end
             end
-          end
+            #
+          ### Create node:
           #
           node = calc.node(fx,fy,fz,uc,ud,us,vc,vd,vs)
           #
@@ -823,14 +850,13 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           #
         end
         #
-        retval = input
+        return input
         #
       ensure
         if @@debug
           puts "\n#{PLUGNAME}: return from get_parameters()"
-          puts "  return value: #{retval.inspect}"
+          puts "  return value: #{input.inspect}"
         end
-        return retval
       end ### get_parameters()
 
       def get_user_input( params, caption = nil )
