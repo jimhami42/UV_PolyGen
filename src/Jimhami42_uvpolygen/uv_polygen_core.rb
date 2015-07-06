@@ -69,6 +69,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           retval = false
         else
           retval = group
+          @mesh  = nil unless @@debug_mesh
         ensure
           if @@debug
             puts "\n#{PLUGNAME}: return from add_mesh_to_model()"
@@ -79,6 +80,24 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
         end
         #
       end # add_mesh_to_model()
+
+      def add_polygon_to_mesh( pt1, pt2, pt3 )
+        #
+        if @@debug_mesh
+          msg = "\n#{PLUGNAME}: add_polygon_to_mesh() method entry"
+          puts "  pt1: #{pt1.inspect}"
+          puts "  pt2: #{pt2.inspect}"
+          puts "  pt3: #{pt3.inspect}"
+        end
+        #
+        index = @mesh.add_polygon( pt1, pt2, pt3 )
+        #
+      ensure
+        if @@debug_mesh
+          puts "\n#{PLUGNAME}: return from add_polygon_to_mesh()"
+          puts "  result of @mesh.add_polygon() was #{index.inspect}"
+        end
+      end
 
       def announce_error( exception, tagline )
       # Simplified edition.
@@ -162,29 +181,31 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
       def create_uv_polygen()
       #
         #
-        if @@debug
+        if @@debug || @@debug_mesh
           puts "\n#{PLUGNAME}: entry to create_uv_polygen()"
           puts "  @vars value: #{@vars.inspect}"
         end
         #
         us,ue,uc,ud,vs,ve,vc,vd,offset,surface,gname,autoscale,node = @vars
         #
+        calced_num_points = (uc + 1) * (vc + 1)
+        calced_num_polys  = uc * vc * 2
+        #
         begin # building mesh:
           #
-          mesh = Geom::PolygonMesh.new( (uc + 1) * (vc + 1), uc * vc * 2 )
+          @mesh = Geom::PolygonMesh.new( calced_num_points, calced_num_polys )
           #
-          if (offset == 0.0)
+          if offset.nil? || (offset == 0.0) # infinitesimal numerics still not == 0
             #
             for i in 0...uc
               for j in 0...vc
-                mesh.add_polygon( node[i][j],   node[i+1][j], node[i][j+1]   )
-                mesh.add_polygon( node[i][j+1], node[i+1][j], node[i+1][j+1] )
+                add_polygon_to_mesh( node[i][j],   node[i+1][j], node[i][j+1]   )
+                add_polygon_to_mesh( node[i][j+1], node[i+1][j], node[i+1][j+1] )
               end
             end
             #
           else
             #{# Create the offset points instead
-            #
             node2 = []
             np = vc
             sg = uc
@@ -410,36 +431,36 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
               end # for i
               node2 << pt2
             end # for j
-            #
             #}#
+            #
             #{# Handle Surface option:
             case surface
             when 0  # Offset Surface
               for j in 0...uc
                 for i in 0...vc
-                  mesh.add_polygon( node2[j][i],   node2[j+1][i], node2[j][i+1] )
-                  mesh.add_polygon( node2[j][i+1], node2[j+1][i], node2[j+1][i+1] )
+                  add_polygon_to_mesh( node2[j][i],   node2[j+1][i], node2[j][i+1] )
+                  add_polygon_to_mesh( node2[j][i+1], node2[j+1][i], node2[j+1][i+1] )
                 end
               end
             when 1  # Side 1
               for j in 0...uc
-                  mesh.add_polygon( node2[j][0],   node[j][0],    node[j+1][0] )
-                  mesh.add_polygon( node[j+1][0], node2[j+1][0], node2[j][0] )
+                add_polygon_to_mesh( node2[j][0],   node[j][0],    node[j+1][0] )
+                add_polygon_to_mesh( node[j+1][0], node2[j+1][0], node2[j][0] )
               end
             when 2  # Side 2
               for j in 0...uc
-                  mesh.add_polygon( node2[j][np],  node2[j+1][np], node[j][np] )
-                  mesh.add_polygon( node2[j+1][np], node[j+1][np], node[j][np] )
+                add_polygon_to_mesh( node2[j][np],  node2[j+1][np], node[j][np] )
+                add_polygon_to_mesh( node2[j+1][np], node[j+1][np], node[j][np] )
               end
             when 3  # End 1
               for i in 0...vc
-                mesh.add_polygon( node[0][i],  node2[0][i],   node[0][i+1] )
-                mesh.add_polygon( node2[0][i], node2[0][i+1], node[0][i+1] )
+                add_polygon_to_mesh( node[0][i],  node2[0][i],   node[0][i+1] )
+                add_polygon_to_mesh( node2[0][i], node2[0][i+1], node[0][i+1] )
               end
             when 4  # End 2
               for i in 0...vc
-                mesh.add_polygon( node2[sg][i], node[sg][i],   node2[sg][i+1] )
-                mesh.add_polygon( node[sg][i],  node[sg][i+1], node2[sg][i+1] )
+                add_polygon_to_mesh( node2[sg][i], node[sg][i],   node2[sg][i+1] )
+                add_polygon_to_mesh( node[sg][i],  node[sg][i+1], node2[sg][i+1] )
               end
             end # case surface
             #}#
@@ -448,18 +469,24 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           #
         end # building mesh.
         #
-        retval = mesh
+        retval = @mesh
         #
       rescue => error
         announce_error( error, 'Error in create_uv_polygen() method!' )
         retval = nil
       ensure
-        if @@debug
+        if @@debug || @@debug_mesh
           puts "\n#{PLUGNAME}: return from create_uv_polygen()"
           puts "  return value: #{retval.inspect}"
           if retval.is_a?(Geom::PolygonMesh)
-            puts "  mesh polygons : #{retval.count_polygons}"
-            puts "  mesh points   : #{retval.count_points}"
+            puts "  mesh points:"
+            puts "    calc'ed = #{calced_num_points}"
+            puts "    actuals = #{retval.count_points}"
+            puts "  mesh polygons:"
+            puts "    calc'ed = #{calced_num_polys}"
+            puts "    actuals = #{retval.count_polygons}"
+          else
+            puts "  Whoops! Return was not a Geom::PolygonMesh object!"
           end
         end
         return retval
@@ -737,10 +764,6 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
             # Test for infinity or nan:
             msg = ERRORTXT[:uinfi]
             fail(ParameterError,"(3): "<<msg) unless ud.finite?
-            # Test ud * scale to be >= SketchUp's tolerance of 0.001":
-            #msg = ERRORTXT[:udivs]
-            #udiv =( autoscale ? ud * calc.scale : ud )
-            #fail(ParameterError,"(3): "<<msg) unless udiv >= 0.001
             #
           ### Validate vs, ve & vc:
             #
@@ -760,10 +783,6 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
             # Test for infinity or nan:
             msg = ERRORTXT[:vinfi]
             fail(ParameterError,"(6): "<<msg) unless vd.finite?
-            # Test vd * scale to be >= SketchUp's tolerance of 0.001":
-            #msg = ERRORTXT[:vdivs]
-            #vdiv =( autoscale ? vd * calc.scale : vd )
-            #fail(ParameterError,"(6): "<<msg) unless vdiv >= 0.001
             #
           ### Create some test values for validating x, y & z:
             #
@@ -804,9 +823,14 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
             #
             msg = ERRORTXT[:float]
             n = input[9].strip
-            if (Calc::DECPT && ['0','0.0','.0','0.'].include?(n)) ||
-            (!Calc::DECPT && ['0','0,0',',0','0,'].include?(n))
-              offset = 0.0
+            if n.empty?
+              offset = nil
+              input[9]= Calc::DECPT ? '0.0' : '0,0'
+            elsif n =~ /\A(nil|none|no|null)\z/i
+              offset = nil
+            elsif ['0','0.0','0,0','.0',',0','0.','0,'].include?(n)
+              offset = nil
+              input[9]= Calc::DECPT ? '0.0' : '0,0'
             else
               o = calc.floatval(n) rescue fail(ParameterError,"(10): "<<msg)
               if calc.scale != 1.0 && autoscale
@@ -817,9 +841,16 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
               end
               # check that offset is >= SketchUp's tolerance of 0.001":
               msg = ERRORTXT[:obtol]
-              unless offset >= 0.001
-                o = Sketchup.format_length(offset)
-                fail(ParameterError,"(10): #{o} "<<msg)
+              unless offset.abs >= 0.001
+                if autoscale
+                  # We create our own unit string because Length.to_s() and
+                  # Sketchup.format_length() both round to precision setting.
+                  # This can result in strange error messages
+                  o = offset / calc.scale
+                  fail(ParameterError,"(10): #{o}#{calc.sym} "<<msg)
+                else
+                  fail(ParameterError,"(10): #{offset}\" "<<msg)
+                end
               end
             end
             #

@@ -236,3 +236,57 @@
 	
 - "Jimhami42_uvpolygen.rb" : bumped version number to "2.4"
 
+
+
+####  v 2.5  :  2015-07-04 (DAR)
+
+- "uv_polygen.rb" : file modifications:
+
+  - Added **@@debug_mesh** module var for debug conditionals that involve fine grained
+    debugging of mesh generation.
+
+	
+- "uv_polygen_calc.rb" : file modifications:
+
+  - Added **@sym** attribute and **sym()** reader method.
+  
+  - **Calc** class constructor sets the unit string symbol in **@sym**.
+  
+  - Fixed **@scale** value for Architectural inches (was getting set to feet.)
+
+  
+- "uv_polygen_core.rb" : file modifications:
+
+  - Added **add_polygon_to_mesh()** method with **@@debug_mesh** conditionals
+    that will output inspection of point arguments, and index result.
+  
+  - Modifications to **create_uv_polygen()** method:
+      
+    - **mesh** reference changed to **@mesh** (used by **add_polygon_to_mesh()**.)
+	  
+	- all **mesh.add_polygon** calls changed to **add_polygon_to_mesh()** calls.
+	  
+    - Created local vars: **calced_num_points** and **calced_num_polys**
+	  (Were just mathematical expressions in mesh constructor call.)
+	  
+	- Modified the debug output in **ensure** clause to display both the calculated
+	  points and polys (used in the constructor call,) and the actuals after adding
+	  all the polygons to the mesh. (Ideally they should each be the same.)
+	  
+	- Offset boolean test is now **`if offset.nil? || (offset == 0.0)`**.
+	  (Was just the numeric test, which might fail with floating point errors.)
+
+  - Modifications to **get_paramters()** method:
+  
+	- Allow empty string, 'nil', 'none', 'no' & 'null' for offset field.
+	 
+    - Internally using **nil** as **offset** when set to **0.0**, (or "none" by anyway
+ 	  allowed string,) in the "Offset" input field.
+
+	- Changed **offset** tolerance test to use absolute offset. (Allows negative offsets.)
+	
+- "Jimhami42_uvpolygen.rb" : bumped version number to "2.5"
+
+
+
+

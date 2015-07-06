@@ -132,7 +132,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
 
       #{# ATTRIBUTES
       #
-        attr_reader :scale
+        attr_reader :scale, :sym
       #
       #}#
 
@@ -155,22 +155,30 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           @scale = case unit
           when 0
             case opts['LengthFormat']
-            when 0,3
-              1.0 # decimal & fractional inches
-            when 1,2
-              12.0 # architectural & engineering feet
+            when 0,1,3
+              @sym = '"'
+              1.0 # decimal, architectural & fractional inches
+            when 2
+              @sym = %q{'}
+              12.0 #  & engineering feet
             else
+              @sym = '"'
               1.0
             end
           when 1
+            @sym = %q{'}
             12.0 # decimal feet
           when 2
+            @sym = 'mm'
             1.0/25.4 # decimal mm
           when 3
+            @sym = 'cm'
             1.0/2.54 # decimal cm
           when 4
+            @sym = 'm'
             1.0/0.0254 # decimal meters
           else
+            @sym = '"'
             1.0
           end
           #
@@ -720,7 +728,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
           meths = meths - [
             :abs,:ceil,:deg,:deg2rad,:e,:f,:float,:floor,
             :i,:int,:pi,:rad,:rad2deg,:rnd,:round,:scale,:trunc,
-            :control,:fail,:floatval,:ieval,:intval,:node,:puts,:test
+            :control,:fail,:floatval,:ieval,:intval,:node,:puts,:sym,:test
           ]
           meths.delete_if{|s| s == :raise || s == :fail }
           if @@intro # allow introspection

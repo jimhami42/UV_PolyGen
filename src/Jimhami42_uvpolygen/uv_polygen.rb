@@ -84,6 +84,9 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
       @@debug = Sketchup::read_default(OPTSKEY,'debug_mode',false)
       @@debug = false if @@debug.nil?
 
+      @@debug_mesh = Sketchup::read_default(OPTSKEY,'debug_mesh',false)
+      @@debug_mesh = false if @@debug_mesh.nil?
+
       @@calc_debug = Sketchup::read_default(OPTSKEY,'calc_debug_mode',false)
       @@calc_debug = false if @@calc_debug.nil?
 
@@ -116,8 +119,8 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
         :steps => "step count must round to >= 1",
         :uinfi => "u range divisions cannot be infinite!",
         :vinfi => "v range divisions cannot be infinite!",
-        :udivs => "u range divisions below tolerance!",
-        :vdivs => "v range divisions below tolerance!",
+        :udivs => "u range divisions below tolerance!", # not used
+        :vdivs => "v range divisions below tolerance!", # not used
         :obtol => "offset below tolerance!"
       }
 
@@ -286,6 +289,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
       def self::reload()
       # Reloads the plugin's files.
         #
+        puts "\nTemporarily setting $VERBOSE to nil."
         verbose, $VERBOSE = $VERBOSE, nil # suppress warnings
         #
         puts "\nReloading files for #{Module::nesting[0].name} ..."
@@ -311,7 +315,7 @@ module Jimhami42  # Jim Hamilton's toplevel namespace
       ensure
         # restore warnings:
         $VERBOSE = verbose  
-        return "$VERBOSE is now: #{$VERBOSE.to_s}\n"
+        return "$VERBOSE reset to: #{$VERBOSE.to_s}\n"
         #
       end ### self::reload()
 
